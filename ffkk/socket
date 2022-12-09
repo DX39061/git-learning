@@ -1,0 +1,103 @@
+#include <stdio.h>
+#include <sys/socket.h>
+#include <stdlib.h> // 引入exit
+#include <string.h> // 引入strcat
+#include <netinet/in.h> // 引入sockaddr_in struct
+#include <arpa/inet.h> // 引入inet_ntop
+#include <netdb.h> // 引入gethostbyname
+
+const char * get_server_ip(char *host) {
+    struct hostent *hosts = NULL;
+    const char *server_ip;
+    char buf[20];
+    char **addrs;
+    // 进行域名解析
+    hosts = gethostbyname(host);
+    if (hosts == NULL) {
+        puts("gethostbyname failed");
+        exit(-1);
+    }
+    // 返回获得的第一个ip
+    addrs = hosts->h_addr_list;
+    server_ip = inet_ntop(hosts->h_addrtype, hosts->h_addr_list[0], buf, sizeof(buf));
+    return server_ip;
+}
+
+int recv_all(int socket_fd, char *response) {
+    int response_len = 0;
+    char buf[1025];
+    int buf_len = 0;
+    // 每次读取1024bytes，直到server断开socket连接
+    do {
+        buf_len = recv(socket_fd, buf, 1024, 0);
+        if (buf_len > 0) {
+            printf("Bytes received: %d\n", buf_len);
+            strcat(response, buf);
+            response_len += buf_len;
+        } else if (buf_len == 0)
+            printf("Connection closed\n\n");
+        else {
+            printf("recv failed\n");
+            exit(-1);
+        }
+    } while (buf_len > 0);
+}
+
+int main(int argc, char *argv[]) {
+    char request[1024] = {0};
+    char response[100000] = {0};
+    int response_len = 0;
+    struct sockaddr_in addr;
+
+    // 命令行参数确认
+    if (argc != 2) {
+        puts("useage: ./socket <host>");
+        exit(-1);
+    }
+
+    // 创建socket
+    int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (socket_fd == -1) {
+        puts("create socket error");
+        exit(-1);
+    }
+
+    // 通过域名解析出ip
+    const char *server_ip = NULL;
+    server_ip = get_server_ip(argv[1]);
+    printf("server ip: %s\n\n", server_ip);
+
+    // 构造sockaddr
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = inet_addr(server_ip);
+    addr.sin_port = htons(80);
+
+    // 连接server
+    int status = connect(socket_fd, (struct sockaddr *)&addr, sizeof(addr));
+    if (status != 0) {
+        puts("connect socket error");
+        exit(-1);
+    }
+
+    // 构造请求头
+    strcat(request, "GET / HTTP/1.1\n");
+    strcat(request, "Host: ");
+    strcat(request, argv[1]);
+    strcat(request, "\n\r\n");  // 注意request必须以\r\n结尾表示结束!!
+    printf("request:\n%s", request);
+
+    // 发送请求
+    int send_len = send(socket_fd, request, sizeof(request), 0);
+    if (send_len == -1) {
+        puts("send request error");
+        exit(-1);
+    }
+
+    // 接收响应
+    response_len = recv_all(socket_fd, response);    
+    printf("response_len: %d\n", response_len);
+    printf("response:\n%s\n", response);
+    
+    return 0;
+}
+
