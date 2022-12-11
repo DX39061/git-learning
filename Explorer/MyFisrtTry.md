@@ -47,3 +47,7 @@ remote: Total 23 (delta 1), reused 8 (delta 0), pack-reused 0
 Receiving objects: 100% (23/23), 5.61 KiB | 1.87 MiB/s, done.
 Resolving deltas: 100% (1/1), done.
 ```
+### commit&push
+up to date *50+
+wuwuwuwuwu..........
+Finally, I turn off wlan, using my own 4G mobile data, which succeed !!
